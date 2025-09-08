@@ -120,7 +120,7 @@
             const res = await fetch('/api/health/detect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image_url: "http://localhost:74" + imageUrl })
+                body: JSON.stringify({ image_url: "https://diagnosis-tree-2.onrender.com" + imageUrl })
             });
             if (!res.ok) throw new Error("HTTP " + res.status);
             return res.json();
