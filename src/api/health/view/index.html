@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chuẩn đoán sức khỏe cây</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .focus-ring:focus {
+            outline: 3px solid rgb(59 130 246);
+            outline-offset: 3px;
+        }
+
+        .dropzone {
+            border: 2px dashed rgb(16 185 129);
+            transition: 0.2s ease-in-out;
+        }
+
+        .dropzone.dragover {
+            border-color: rgb(59 130 246);
+            background: rgb(236 253 245);
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-b from-green-50 to-green-100 min-h-screen text-gray-900 antialiased">
+    <main class="max-w-2xl mx-auto p-6">
+        <header class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-green-700">🌱 Chuẩn đoán sức khỏe cây</h1>
+            <p class="text-sm text-gray-600">Tải ảnh lá cây để hệ thống AI phân tích và gợi ý chăm sóc</p>
+        </header>
+
+        <!-- Upload -->
+        <section class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-6">
+            <h2 class="text-base font-semibold mb-3">1) Tải ảnh từ máy</h2>
+            <div id="dropzone"
+                class="dropzone rounded-lg p-6 text-sm text-gray-600 flex flex-col items-center justify-center text-center cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-green-500 mb-2" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v9m0-9l-3 3m3-3l3 3m-9-7h.01M12 4h.01M19 4h.01M5 4h.01" />
+                </svg>
+                <p>Kéo thả ảnh vào đây hoặc <label for="fileInput" class="text-green-600 underline cursor-pointer">chọn
+                        file</label></p>
+                <input id="fileInput" type="file" accept="image/*" class="sr-only" />
+            </div>
+            <div class="mt-3 flex gap-2 items-center">
+                <button id="uploadDetectBtn"
+                    class="px-4 py-2 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 focus-ring"
+                    disabled>Bắt đầu phân tích</button>
+                <span id="selectedFileName" class="text-sm text-gray-600"></span>
+            </div>
+        </section>
+
+        <!-- Status -->
+        <div id="status" class="mb-4 text-sm text-gray-600 text-center" aria-live="polite">
+            📸 Hãy chọn một bức ảnh lá cây để bắt đầu
+        </div>
+
+        <!-- Kết quả -->
+        <section class="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+            <div id="imageWrap" class="mb-4 hidden" role="img">
+                <img id="preview-image" src="" alt="Ảnh đã chọn"
+                    class="w-full rounded-lg border border-gray-200 shadow" />
+            </div>
+
+            <div id="predictionWrap" class="mb-4 hidden text-center">
+                <div class="text-lg text-gray-900 font-semibold mb-1" id="prediction-text">—</div>
+                <div class="text-sm"><span class="font-semibold">Mức độ:</span> <span id="severity-text">—</span></div>
+            </div>
+
+            <div id="causesWrap" class="mb-4 hidden">
+                <h3 class="text-sm font-semibold text-gray-800 mb-2">🌟 Nguyên nhân có thể</h3>
+                <ul id="causes-list" class="list-disc pl-5 text-sm text-gray-700 space-y-1"></ul>
+            </div>
+
+            <div id="actionsWrap" class="mb-4 hidden">
+                <h3 class="text-sm font-semibold text-gray-800 mb-2">🛠️ Hành động đề xuất</h3>
+                <div id="actions-container" class="space-y-2"></div>
+            </div>
+
+            <div id="tagsWrap" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 hidden">
+                <div id="chemWrap" class="hidden">
+                    <h3 class="text-sm font-semibold text-gray-800 mb-1">💊 Biện pháp hóa học</h3>
+                    <div id="chem-tags" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div id="bioWrap" class="hidden">
+                    <h3 class="text-sm font-semibold text-gray-800 mb-1">🌿 Biện pháp sinh học</h3>
+                    <div id="bio-tags" class="flex flex-wrap gap-1.5"></div>
+                </div>
+            </div>
+
+            <div id="monitoringWrap" class="mb-3 hidden">
+                <h3 class="text-sm font-semibold text-gray-800">📅 Kế hoạch theo dõi</h3>
+                <div id="monitoring-plan" class="text-sm text-gray-700"></div>
+            </div>
+
+            <div id="preventiveWrap" class="mb-3 hidden">
+                <h3 class="text-sm font-semibold text-gray-800">🛡️ Phòng ngừa</h3>
+                <ul id="preventive-list" class="list-disc pl-5 text-sm text-gray-700 space-y-1"></ul>
+            </div>
+
+            <div id="notesWrap" class="text-xs text-gray-600 mt-2 hidden">
+                <span class="font-semibold">📝 Ghi chú: </span>
+                <span id="additional-notes"></span>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const $ = id => document.getElementById(id);
+        const show = (el, flag) => el && el.classList.toggle('hidden', !flag);
+        const clearNode = node => { if (!node) return; while (node.firstChild) node.removeChild(node.firstChild); };
+
+        let selectedFile = null;
+
+        async function postDetect(imageUrl) {
+            $('status').textContent = "🔍 Đang phân tích...";
+            const res = await fetch('/api/health/detect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_url: "http://localhost:74" + imageUrl })
+            });
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+        }
+        async function uploadFile(file) {
+            const fd = new FormData();
+            fd.append('file', file, file.name);
+            const resp = await fetch('/api/health/upload', { method: 'POST', body: fd });
+            if (!resp.ok) throw new Error("Upload failed");
+            return resp.json();
+        }
+
+        function renderAll(payload) {
+            const url = payload?.presigned_url;
+            const a = payload?.analysis_vn || {};
+
+            $('preview-image').src = url;
+            show($('imageWrap'), true);
+
+            $('prediction-text').textContent = a?.prediction || '—';
+            $('severity-text').textContent = a?.severity_level || '—';
+            show($('predictionWrap'), true);
+
+            clearNode($('causes-list'));
+            if (a?.possible_causes?.length) {
+                a.possible_causes.forEach(c => {
+                    const li = document.createElement('li');
+                    li.textContent = `${c.cause} (${Math.round(c.confidence * 100)}%) - ${c.evidence}`;
+                    $('causes-list').appendChild(li);
+                });
+                show($('causesWrap'), true);
+            }
+
+            clearNode($('actions-container'));
+            if (a?.recommended_actions?.length) {
+                a.recommended_actions.forEach(act => {
+                    const div = document.createElement('div');
+                    div.className = "p-3 border rounded-md bg-gray-50";
+                    div.innerHTML = `<div class="font-semibold">${act.name}</div>
+                           <div class="text-xs text-gray-600">⏱️ ${act.timing} | 🔁 ${act.targetValue} lần/tuần trong ${act.numOfWeeks} tuần</div>
+                           <div class="text-sm text-gray-700 mt-1">${act.description}</div>`;
+                    $('actions-container').appendChild(div);
+                });
+                show($('actionsWrap'), true);
+            }
+
+            clearNode($('chem-tags'));
+            if (a?.chemical_recommendations?.length) {
+                a.chemical_recommendations.forEach(c => {
+                    const span = document.createElement('span');
+                    span.className = "px-2 py-1 text-xs bg-red-100 text-red-700 rounded-lg border";
+                    span.textContent = c;
+                    $('chem-tags').appendChild(span);
+                });
+                show($('chemWrap'), true);
+            }
+
+            clearNode($('bio-tags'));
+            if (a?.biological_recommendations?.length) {
+                a.biological_recommendations.forEach(b => {
+                    const span = document.createElement('span');
+                    span.className = "px-2 py-1 text-xs bg-green-100 text-green-700 rounded-lg border";
+                    span.textContent = b;
+                    $('bio-tags').appendChild(span);
+                });
+                show($('bioWrap'), true);
+            }
+
+            show($('tagsWrap'), (a?.chemical_recommendations?.length || a?.biological_recommendations?.length));
+
+            $('monitoring-plan').textContent = a?.monitoring_plan || '';
+            show($('monitoringWrap'), Boolean(a?.monitoring_plan));
+
+            clearNode($('preventive-list'));
+            if (a?.preventive_measures?.length) {
+                a.preventive_measures.forEach(p => {
+                    const li = document.createElement('li');
+                    li.textContent = p;
+                    $('preventive-list').appendChild(li);
+                });
+                show($('preventiveWrap'), true);
+            }
+
+            $('additional-notes').textContent = a?.additional_notes || '';
+            show($('notesWrap'), Boolean(a?.additional_notes));
+        }
+
+        $('fileInput').addEventListener('change', e => {
+            const f = e.target.files[0];
+            if (f) {
+                selectedFile = f;
+                $('selectedFileName').textContent = f.name;
+                $('uploadDetectBtn').disabled = false;
+                $('preview-image').src = URL.createObjectURL(f);
+                show($('imageWrap'), true);
+            }
+        });
+
+        $('uploadDetectBtn').addEventListener('click', async () => {
+            if (!selectedFile) return;
+            try {
+                const up = await uploadFile(selectedFile);
+                const data = await postDetect(up.image_url);
+                renderAll(data);
+                $('status').textContent = "✅ Phân tích hoàn tất!";
+            } catch (err) {
+                $('status').textContent = "❌ Lỗi phân tích.";
+                console.error(err);
+            }
+        });
+    </script>
+</body>
+
+</html>
